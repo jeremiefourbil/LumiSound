@@ -1,4 +1,4 @@
-name := "HelloAkka"
+name := "LumiSound"
 
 scalaVersion := "2.10.1"
 
