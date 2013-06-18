@@ -10,6 +10,7 @@ package fr.lumisound
 
  import java.io.IOException
  import java.io.File
+import java.io.ByteArrayOutputStream
 
  import javax.sound.sampled.DataLine
  import javax.sound.sampled.TargetDataLine
@@ -29,6 +30,8 @@ package fr.lumisound
     case Greeting => {
         var outputFile = new File("test.wav")
 
+        var outputArray = new ByteArrayOutputStream()
+
         var audioFormat = new AudioFormat(
             AudioFormat.Encoding.PCM_SIGNED,
             44100.0F, 16, 2, 4, 44100.0F, false)
@@ -36,19 +39,32 @@ package fr.lumisound
         var info = new DataLine.Info(classOf[TargetDataLine], audioFormat)
 
         var line = AudioSystem.getLine(info).asInstanceOf[TargetDataLine]
-        line.open(audioFormat)
+        line.open(audioFormat, line.getBufferSize())
 
         var targetType = AudioFileFormat.Type.WAVE
+
+        var numBytesRead = 0
+        var size = line.getBufferSize() / 5
+        var data = new Array[Byte](size)
+
 
         println("tap enter")
 
         System.in.read()
 
+        var stopped = false
+
         val th = new Thread() {
           override def run() {
                 println("in thread")
                 line.start()
-                AudioSystem.write(new AudioInputStream(line), targetType, outputFile)
+                //AudioSystem.write(new AudioInputStream(line), targetType, outputArray)
+
+                while (!stopped) {
+
+                    numBytesRead =  line.read(data, 0, data.length)
+                    outputArray.write(data, 0, numBytesRead)
+                }
                 println("out of thread")
             }
         }
@@ -58,11 +74,13 @@ package fr.lumisound
         println("tap to stop")
 
         System.in.read()
-
+        stopped = true
         line.stop()
         line.close()
 
-        th.stop()
+        println("This is what the array contains : ")
+        
+        println(outputArray.toByteArray().map("02X" format _).mkString)
     }
 }
 }
