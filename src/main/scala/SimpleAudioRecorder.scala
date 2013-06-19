@@ -23,6 +23,7 @@ import javax.sound.sampled.AudioFileFormat
 import akka.kernel.Bootable
 import com.typesafe.config.ConfigFactory
 import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
+import main.java.PrincetonComplex
 
 class SimpleAudioRecorder extends Actor {
   // actor attributes
@@ -59,6 +60,45 @@ class SimpleAudioRecorder extends Actor {
       println("out of thread")
     }
   }
+
+  def FFT(baos: ByteArrayOutputStream) = {
+
+      var audio = baos.toByteArray()
+
+      val totalSize = audio.length
+
+      var amountPossible = totalSize/4096
+
+      //When turning into frequency domain we'll need complex numbers:
+      var results = new Array[PrincetonComplex](amountPossible)()
+
+      // JHB: need doubles as well
+      //double[][] r = new double[amountPossible][];
+
+      //For all the chunks:
+      for(times <- 0 to (amountPossible-1)) {
+        var complex = new Array[PrincetonComplex](4096)
+
+        // JHB: need 2 array of doubles, real[], imag[] for FFT algorithm
+        //double[] real = new double[CHUNK_SIZE];
+        //double[] imag = new double[CHUNK_SIZE];
+
+        for(i <- 0 to 4095) {
+          //Put the time domain data into a complex number with imaginary part as 0:
+          complex(i) = new PrincetonComplex(audio((times*4096)+i), 0)
+          //real[i] = audio[(times*CHUNK_SIZE)+i];
+          //imag[i] = 0;
+        }
+
+        //Perform FFT analysis on the chunk:
+        results(times) = PrincetonFFT.fft(complex)
+        //r[times] = OrlandoSelenuFFT.fft(real, imag, true);
+      }
+
+      results
+      //Done!
+  }
+
   // initializing the audio capture thread
   override def preStart() = {
     audioThread.start()
