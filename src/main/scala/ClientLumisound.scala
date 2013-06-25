@@ -7,7 +7,7 @@ import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 
 
 class ClientLumisound extends Bootable {
-	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("machine3"))
+	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("client"))
   val greeter = system.actorOf(Props[GreetingActor], name = "greeter")
   val remoteAudioRecorder = system.actorFor("akka://MySystem@127.0.0.1:2552/user/audiorecorder")
 	def startup() = {

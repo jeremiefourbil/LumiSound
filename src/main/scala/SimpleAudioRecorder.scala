@@ -19,6 +19,7 @@ import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.LineUnavailableException
 import javax.sound.sampled.AudioFileFormat
+import java.util.Date
 
 // scala imports
 import fr.lumisound.FFT.myComplex
@@ -29,8 +30,49 @@ import scala.math._
 import scala.concurrent.duration._
 
 class SimpleAudioRecorder extends Actor {
-  // actor attributes
-  var outputFile = new File("test.wav")
+
+  var connectedClients = List[ActorRef]()
+
+  // scheduler
+  import context.dispatcher
+  val tick = context.system.scheduler.schedule(500 millis, 1000 millis, self, "tick")
+
+  def receive() = {
+    case Stop() => {
+      println("stopping system ...")
+      context.system.shutdown
+    }
+    case NewClient => {
+      println("new client ...")
+      connectedClients = sender :: connectedClients
+      sender ! Connected
+    }
+    case "tick" => { 
+      (new AudioThread(connectedClients)).start()
+    }
+  }
+}
+
+class SimpleAudioRecorderApplication extends Bootable {
+  val system = ActorSystem("SimpleAudioRecorderApplication",ConfigFactory.load.getConfig("audioRecorder"))
+  val localActor = system.actorOf(Props[SimpleAudioRecorder], "simpleAudioRecorder")
+
+  def startup() {
+  }
+
+  def shutdown() {
+    system.shutdown()
+  }
+}
+
+object SimpleAudioRecorderApp {
+  def main(args: Array[String]) {
+    new SimpleAudioRecorderApplication
+  }
+}
+
+case class AudioThread(connectedClients: List[ActorRef]) extends Thread {
+  var numBytesRead = 0
   var outputArray = new ByteArrayOutputStream()
   var audioFormat = new AudioFormat(
     AudioFormat.Encoding.PCM_SIGNED
@@ -42,29 +84,34 @@ class SimpleAudioRecorder extends Actor {
     ,false)
   var info = new DataLine.Info(classOf[TargetDataLine], audioFormat)
   var line = AudioSystem.getLine(info).asInstanceOf[TargetDataLine]
-  line.open(audioFormat, line.getBufferSize())
-  var targetType = AudioFileFormat.Type.WAVE
-  var numBytesRead = 0
   var size = line.getBufferSize() / 5
   var data = new Array[Byte](size)
-  var stopped = false
 
-  val audioThread = new Thread() {
-    override def run() {
+  line.open(audioFormat, line.getBufferSize())
+
+   override def run() {
       println("starting audio recording...")
       line.start()
-      while (!stopped) {
+
+      var date = (new Date()).getTime()
+
+      while ((new Date).getTime() < date + 1000) {
+
         numBytesRead =  line.read(data, 0, data.length)
-//        println("numBytesRead :" ++ numBytesRead.toString)
-//        println("outputArray :" ++ outputArray.toByteArray.length.toString)
         if( numBytesRead > 0 ) {
           outputArray.write(data, 0, numBytesRead)
         }
+
       }
+
+      line.stop()
+      line.close()
+
+      val fft = myFFT(outputArray).map( x => x.map(y => sqrt(y.re*y.re + y.im*y.im)) )
+      connectedClients.map( _ ! Result(fft.length))
+
       println("out of thread")
-    }
   }
-  var connectedClients = List[ActorRef]()
 
   // custom ByteArrayOutputStream FFT
   def myFFT(baos: ByteArrayOutputStream) = {
@@ -80,70 +127,11 @@ class SimpleAudioRecorder extends Actor {
       0 until CHUNK_SIZE map
         { x => FFT.fft( 0 until amountPossible map { y => myComplex(audio(shiftOp(x)(y)))} toList)}
   }
-
-  // initializing the audio capture thread
-  override def preStart() = {
-    //audioThread.start()
-  }
-
-  // scheduler
-  import context.dispatcher
-  val tick = context.system.scheduler.schedule(500 millis, 1000 millis, self, "tick")
-
-  def receive() = {
-    case Start() => {
-      println("tap enter")
-      println("tap to stop")
-      System.in.read()
-      stopped = true
-      println("This is what the array contains : ")
-      line.stop()
-      line.close()
-
-      //println(outputArray.toByteArray().map("%02X" format _).mkString)
-      println(myFFT(outputArray).length)
-      //println(myFFT(outputArray))
-      val test = myFFT(outputArray).map( x => x.map(y => sqrt(y.re*y.re + y.im*y.im)) )
-    }
-    case Stop() => {
-      println("stopping system ...")
-      context.system.shutdown
-    }
-    case NewClient => {
-      println("new client ...")
-      connectedClients = sender :: connectedClients
-      sender ! Connected
-    }
-    case "tick" => { println("test") }
-  }
 }
-
-class SimpleAudioRecorderApplication extends Bootable {
-  val system = ActorSystem("SimpleAudioRecorderApplication",ConfigFactory.load.getConfig("audioRecorder"))
-  val localActor = system.actorOf(Props[SimpleAudioRecorder], "simpleAudioRecorder")
-  localActor ! Start()
-
-  def startup() {
-  }
-
-  def shutdown() {
-    system.shutdown()
-  }
-}
-
-object SimpleAudioRecorderApp {
-  def main(args: Array[String]) {
-
-    new SimpleAudioRecorderApplication
-
-  }
-}
-
-case class Greeting1
 
 case class Initialize(who: String) extends Serializable
 
-case class Start() extends  Serializable
+case class Result(fft: Int) extends Serializable
 
 case class Stop() extends Serializable
 

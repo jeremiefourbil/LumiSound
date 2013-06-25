@@ -6,7 +6,7 @@ import com.typesafe.config.ConfigFactory
 import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 
 class ServerLumisound extends Bootable {
-	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("machine1"))
+	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("server"))
 //	val greeter = system.actorOf(Props[GreetingActor], name = "greeter")
   val audioRecorder = system.actorOf(Props[SimpleAudioRecorder], name = "audiorecorder")
 
@@ -15,7 +15,6 @@ class ServerLumisound extends Bootable {
   }
 	def shutdown() = system.shutdown()
 }
-
 
 object ServerLumisoundApp {
   def main(args: Array[String]) {
