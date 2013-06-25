@@ -7,6 +7,7 @@ import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 
 class GreetingActor extends Actor {
   def receive = {
-    case Greeting(who) => println("Hello " + who)
+    case Greeting(who) => { println("Hello " + who); context.system.shutdown() }
+    case Connected => { println("Connected !!!")}
   }
 }

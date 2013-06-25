@@ -26,6 +26,7 @@ import akka.kernel.Bootable
 import com.typesafe.config.ConfigFactory
 import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 import scala.math._
+import scala.concurrent.duration._
 
 class SimpleAudioRecorder extends Actor {
   // actor attributes
@@ -50,7 +51,7 @@ class SimpleAudioRecorder extends Actor {
 
   val audioThread = new Thread() {
     override def run() {
-      println("in thread")
+      println("starting audio recording...")
       line.start()
       while (!stopped) {
         numBytesRead =  line.read(data, 0, data.length)
@@ -63,6 +64,7 @@ class SimpleAudioRecorder extends Actor {
       println("out of thread")
     }
   }
+  val connectedClients = Nil
 
   // custom ByteArrayOutputStream FFT
   def myFFT(baos: ByteArrayOutputStream) = {
@@ -84,15 +86,14 @@ class SimpleAudioRecorder extends Actor {
     audioThread.start()
   }
 
+  // scheduler
+  import context.dispatcher
+  val tick = context.system.scheduler.schedule(500 millis, 1000 millis, self, "tick")
+
   def receive() = {
-    case Greeting => {
-
+    case Start() => {
       println("tap enter")
-
-//      System.in.read()
-
       println("tap to stop")
-
       System.in.read()
       stopped = true
       println("This is what the array contains : ")
@@ -103,16 +104,23 @@ class SimpleAudioRecorder extends Actor {
       println(myFFT(outputArray).length)
       //println(myFFT(outputArray))
       val test = myFFT(outputArray).map( x => x.map(y => sqrt(y.re*y.re + y.im*y.im)) )
-      //println(test)
-      context.system.shutdown()
     }
+    case Stop() => {
+      println("stopping system ...")
+      context.system.shutdown
+    }
+    case NewClient => {
+      println("new client ...")
+      sender ! Connected
+    }
+    case "tick" => { println("test") }
   }
 }
 
 class SimpleAudioRecorderApplication extends Bootable {
-  val system = ActorSystem("SimpleAudioRecorderApplication")
+  val system = ActorSystem("SimpleAudioRecorderApplication",ConfigFactory.load.getConfig("audioRecorder"))
   val localActor = system.actorOf(Props[SimpleAudioRecorder], "simpleAudioRecorder")
-  localActor ! Greeting
+  localActor ! Start()
 
   def startup() {
   }
@@ -124,11 +132,20 @@ class SimpleAudioRecorderApplication extends Bootable {
 
 object SimpleAudioRecorderApp {
   def main(args: Array[String]) {
-    println("coucou")
 
     new SimpleAudioRecorderApplication
 
   }
 }
 
-case class Greeting
+case class Greeting1
+
+case class Initialize(who: String) extends Serializable
+
+case class Start() extends  Serializable
+
+case class Stop() extends Serializable
+
+case class NewClient extends Serializable
+
+case class Connected extends Serializable
