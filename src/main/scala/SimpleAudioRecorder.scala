@@ -21,7 +21,7 @@ import javax.sound.sampled.LineUnavailableException
 import javax.sound.sampled.AudioFileFormat
 
 // scala imports
-import fr.lumisound.FFT.Complex
+import fr.lumisound.FFT.myComplex
 import akka.kernel.Bootable
 import com.typesafe.config.ConfigFactory
 import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
@@ -76,7 +76,7 @@ class SimpleAudioRecorder extends Actor {
       def shiftOp = { x: Int => y: Int => y*CHUNK_SIZE + x}
       // compute FFT
       0 until CHUNK_SIZE map
-        { x => FFT.fft( 0 until amountPossible map { y => Complex(audio(shiftOp(x)(y)))} toList)}
+        { x => FFT.fft( 0 until amountPossible map { y => myComplex(audio(shiftOp(x)(y)))} toList)}
   }
 
   // initializing the audio capture thread
@@ -100,8 +100,11 @@ class SimpleAudioRecorder extends Actor {
       line.close()
 
       //println(outputArray.toByteArray().map("%02X" format _).mkString)
-      println(outputArray.toByteArray().length)
-      println(myFFT(outputArray))
+      println(myFFT(outputArray).length)
+      //println(myFFT(outputArray))
+      val test = myFFT(outputArray).map( x => x.map(y => sqrt(y.re*y.re + y.im*y.im)) )
+      //println(test)
+      context.system.shutdown()
     }
   }
 }
