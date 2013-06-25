@@ -5,7 +5,6 @@ import scala.util.Random
 import com.typesafe.config.ConfigFactory
 import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 
-
 class ClientLumisound extends Bootable {
 	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("client"))
   val greeter = system.actorOf(Props[GreetingActor], name = "greeter")

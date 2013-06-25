@@ -35,7 +35,7 @@ class SimpleAudioRecorder extends Actor {
 
   // scheduler
   import context.dispatcher
-  val tick = context.system.scheduler.schedule(500 millis, 1000 millis, self, "tick")
+  val tick = context.system.scheduler.schedule(500 millis, 30 millis, self, "tick")
 
   def receive() = {
     case Stop() => {
@@ -95,7 +95,7 @@ case class AudioThread(connectedClients: List[ActorRef]) extends Thread {
 
       var date = (new Date()).getTime()
 
-      while ((new Date).getTime() < date + 1000) {
+      while ((new Date).getTime() < date + 30) {
 
         numBytesRead =  line.read(data, 0, data.length)
         if( numBytesRead > 0 ) {
@@ -108,14 +108,14 @@ case class AudioThread(connectedClients: List[ActorRef]) extends Thread {
       line.close()
 
       val fft = myFFT(outputArray).map( x => x.map(y => sqrt(y.re*y.re + y.im*y.im)) )
-      connectedClients.map( _ ! Result(fft.length))
+      connectedClients.map( _ ! Result(fft.dropRight(128).map( x => x.sum / x.length)))
 
       println("out of thread")
   }
 
   // custom ByteArrayOutputStream FFT
   def myFFT(baos: ByteArrayOutputStream) = {
-      val CHUNK_SIZE: Int = 4096
+      val CHUNK_SIZE: Int = 256
       val audio = baos.toByteArray
       val totalSize = pow(2, floor(log(audio.length.toDouble)/log(2))) toInt
       val amountPossible = totalSize/CHUNK_SIZE
@@ -131,7 +131,7 @@ case class AudioThread(connectedClients: List[ActorRef]) extends Thread {
 
 case class Initialize(who: String) extends Serializable
 
-case class Result(fft: Int) extends Serializable
+case class Result(fft: IndexedSeq[Double]) extends Serializable
 
 case class Stop() extends Serializable
 
