@@ -64,7 +64,7 @@ class SimpleAudioRecorder extends Actor {
       println("out of thread")
     }
   }
-  val connectedClients = Nil
+  var connectedClients = List[ActorRef]()
 
   // custom ByteArrayOutputStream FFT
   def myFFT(baos: ByteArrayOutputStream) = {
@@ -83,7 +83,7 @@ class SimpleAudioRecorder extends Actor {
 
   // initializing the audio capture thread
   override def preStart() = {
-    audioThread.start()
+    //audioThread.start()
   }
 
   // scheduler
@@ -111,6 +111,7 @@ class SimpleAudioRecorder extends Actor {
     }
     case NewClient => {
       println("new client ...")
+      connectedClients = sender :: connectedClients
       sender ! Connected
     }
     case "tick" => { println("test") }
