@@ -8,11 +8,9 @@ import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 
 class Machine3 extends Bootable {
 	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("machine3"))
-	println("avant greeter")
-	val greeter = system.actorFor("akka://MySystem@localhost:2552/user/greeter")
+	val greeter = system.actorFor("akka://MySystem@127.0.0.1:2552/user/greeter")
 	greeter ! Greeting("Sonny Rollins")
 
-	println("on a envoyé greeter = " + greeter)
 	def startup() = {}
 	def shutdown() = {}
 }

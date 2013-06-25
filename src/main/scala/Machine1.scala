@@ -7,9 +7,7 @@ import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 
 class Machine1 extends Bootable {
 	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("machine1"))
-	println("avant greeter")
 	val greeter = system.actorOf(Props[GreetingActor], name = "greeter")
-	println("après greeter = " + greeter)
 	greeter ! Greeting("test")
 
 	def startup() = {}
