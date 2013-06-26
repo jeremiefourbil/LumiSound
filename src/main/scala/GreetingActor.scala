@@ -13,42 +13,75 @@ import org.jfree.data.general._
 import org.jfree.data._
 import org.jfree.chart.ChartPanel
 import org.jfree.data.category._
-import org.jfree.chart.plot.PlotOrientation
+import org.jfree.chart.plot._
 
 import javax.swing.JFrame
 import javax.swing.JPanel
+import java.awt.event._
 
-class GreetingActor extends Actor {
+class VisualizerActor extends Actor {
 
-	// Create a simple pie chart
-    var pieDataset = new DefaultCategoryDataset();
-    val chart = ChartFactory.createBarChart(
-           "Hello World",
-           "cat",
-           "val",
-            pieDataset,
-            PlotOrientation.VERTICAL,
-            false,
-            false,
-            false);
- 
-        println("Hello world");
- 
-        val frame = new JFrame("Hello Pie World")
-        frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE )
- 
-        frame.setSize(640,420)
-        frame.add( new ChartPanel(chart) )
-        frame.pack()
-        frame.setVisible(true)
+	// Create a simple bar chart
+  var barDataset = new DefaultCategoryDataset()
+  val chart = ChartFactory.createBarChart(
+          "LumiSound",
+          null,
+          null,
+          barDataset,
+          PlotOrientation.VERTICAL,
+          false,
+          false,
+          false)
+
+  // Add some parameters to have a "beautiful" visualization
+  val plot = chart.getPlot().asInstanceOf[CategoryPlot]
+  val axis = plot.getRangeAxis()
+  axis.setAutoRange(false)
+  axis.setVisible(false)
+  axis.setUpperBound(1.5)
+  
+  val yAxis = plot.getDomainAxis()
+  yAxis.setVisible(false)
+
+  val frame = new JFrame("LumiSound")
+  frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE )
+
+  val remoteAudioRecorder = context.system.actorFor("akka://MySystem@127.0.0.1:2552/user/audiorecorder")
+  val windowList = new MyWindowListener(remoteAudioRecorder, self)
+  frame.addWindowListener(windowList)
+
+  frame.setSize(640,420)
+  frame.add( new ChartPanel(chart) )
+  frame.pack()
+  frame.setVisible(true)
 
   def receive = {
-    case Greeting(who) => { println("Hello " + who); context.system.shutdown() }
+    case Stop => { 
+      println("stopping client ...")
+      context.system.shutdown
+    }
     case Connected => { println("Connected !!!") }
-	case Result(fft) => { //println(fft) 
+	  case Result(fft) => { 
 
-		fft.zipWithIndex.map( x => pieDataset.addValue(x._1/500,"lol",""+x._2))
-		frame.repaint()
-	}
+      barDataset.clear()
+
+      fft.zipWithIndex.map( x => barDataset.addValue(x._1/500,"",""+x._2))
+		  frame.repaint()
+	  }
   }
+}
+
+class MyWindowListener(actorServer: ActorRef, thisActor: ActorRef) extends WindowListener {
+  
+  def windowClosing(x: WindowEvent) {
+    actorServer.tell(Disconnected, thisActor)
+    thisActor ! Stop
+  }
+
+  def windowActivated(x: WindowEvent) {}
+  def windowClosed(x: WindowEvent) {}
+  def windowDeactivated(x: WindowEvent) {}
+  def windowDeiconified(x: WindowEvent) {}
+  def windowIconified(x: WindowEvent) {}
+  def windowOpened(x: WindowEvent) {}
 }

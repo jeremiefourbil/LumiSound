@@ -1,14 +1,6 @@
 package fr.lumisound
 
-/**
- * Created with IntelliJ IDEA.
- * User: jeremiefourbil
- * Date: 14/06/13
- * Time: 14:49
- * To change this template use File | Settings | File Templates.
- */
 // java imports
-
 import java.io.IOException
 import java.io.File
 import java.io.ByteArrayOutputStream
@@ -38,7 +30,7 @@ class SimpleAudioRecorder extends Actor {
   val tick = context.system.scheduler.schedule(500 millis, 30 millis, self, "tick")
 
   def receive() = {
-    case Stop() => {
+    case Stop => {
       println("stopping system ...")
       context.system.shutdown
     }
@@ -46,6 +38,11 @@ class SimpleAudioRecorder extends Actor {
       println("new client ...")
       connectedClients = sender :: connectedClients
       sender ! Connected
+    }
+    case Disconnected => {
+      println("disconnecting one client ...")
+      connectedClients = connectedClients diff List(sender)
+      if (connectedClients.length == 0) self ! Stop
     }
     case "tick" => { 
       (new AudioThread(connectedClients)).start()
@@ -90,9 +87,7 @@ case class AudioThread(connectedClients: List[ActorRef]) extends Thread {
   line.open(audioFormat, line.getBufferSize())
 
    override def run() {
-      println("starting audio recording...")
       line.start()
-
       var date = (new Date()).getTime()
 
       while ((new Date).getTime() < date + 30) {
@@ -107,10 +102,17 @@ case class AudioThread(connectedClients: List[ActorRef]) extends Thread {
       line.stop()
       line.close()
 
-      val fft = myFFT(outputArray).map( x => x.map(y => sqrt(y.re*y.re + y.im*y.im)) )
-      connectedClients.map( _ ! Result(fft.dropRight(128).map( x => x.sum / x.length)))
+      val lengthToSend = if (connectedClients.length != 0 )  { 256 / 2 / connectedClients.length }
+                          else 0
 
-      println("out of thread")
+      val fft = myFFT(outputArray).map( x => x.map(y => sqrt(y.re*y.re + y.im*y.im)) )
+      
+      //Sending good part to corresponding clients
+      connectedClients.zipWithIndex.map(
+         x => x._1 ! Result(fft.zipWithIndex.filter( 
+                y => (y._2 >= x._2*lengthToSend) && 
+                (y._2 < (x._2 + 1)*lengthToSend)).map( z => z._1.sum/z._1.length)
+         ))
   }
 
   // custom ByteArrayOutputStream FFT
@@ -133,8 +135,10 @@ case class Initialize(who: String) extends Serializable
 
 case class Result(fft: IndexedSeq[Double]) extends Serializable
 
-case class Stop() extends Serializable
+case class Stop extends Serializable
 
 case class NewClient extends Serializable
 
 case class Connected extends Serializable
+
+case class Disconnected extends Serializable

@@ -7,7 +7,6 @@ import akka.actor.{ ActorRef, Props, Actor, ActorSystem }
 
 class ServerLumisound extends Bootable {
 	val system = ActorSystem("MySystem", ConfigFactory.load.getConfig("server"))
-//	val greeter = system.actorOf(Props[GreetingActor], name = "greeter")
   val audioRecorder = system.actorOf(Props[SimpleAudioRecorder], name = "audiorecorder")
 
 	def startup() = {
